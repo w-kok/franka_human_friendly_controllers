@@ -24,7 +24,6 @@ class LfD():
         self.gripper_sub=rospy.Subscriber("/joint_states", JointState, self.gripper_callback)
         self.goal_pub = rospy.Publisher('/equilibrium_pose', PoseStamped, queue_size=0)
         self.grip_pub = rospy.Publisher('/gripper_online', Float32, queue_size=0)
-        self.stiff_pub = rospy.Publisher('/stiffness', Float32MultiArray, queue_size=0)
         self.listener = Listener(on_press=self._on_press)
         self.listener.start()
     def _on_press(self, key):
@@ -87,21 +86,19 @@ class LfD():
         x = np.linspace(start[0], goal_pose.pose.position.x, step_num)
         y = np.linspace(start[1], goal_pose.pose.position.y, step_num)
         z = np.linspace(start[2], goal_pose.pose.position.z, step_num)
-        
-        rot_x= np.linspace(start_ori[0], goal_pose.pose.orientation.x , step_num)
-        rot_y= np.linspace(start_ori[1], goal_pose.pose.orientation.y , step_num)
-        rot_z= np.linspace(start_ori[2], goal_pose.pose.orientation.z , step_num)
-        rot_w= np.linspace(start_ori[3], goal_pose.pose.orientation.w, step_num)
+        q_start=np.quaternion(start_ori[3], start_ori[0], start_ori[1], start_ori[2])
+        q_goal=np.quaternion(goal_pose.pose.orientation.w, goal_pose.pose.orientation.x, goal_pose.pose.orientation.y, goal_pose.pose.orientation.z)
         goal = PoseStamped()
         
         goal.pose.position.x = x[0]
         goal.pose.position.y = y[0]
         goal.pose.position.z = z[0]
 
-        goal.pose.orientation.x = rot_x[0]
-        goal.pose.orientation.y = rot_y[0]
-        goal.pose.orientation.z = rot_z[0]
-        goal.pose.orientation.w = rot_w[0]
+        quat=np.slerp_vectorized(q_start, q_goal, 0)
+        goal.pose.orientation.x = quat[1]
+        goal.pose.orientation.y = quat[2]
+        goal.pose.orientation.z = quat[3]
+        goal.pose.orientation.w = quat[0]
 
         self.goal_pub.publish(goal)
 
@@ -109,11 +106,10 @@ class LfD():
         stiff_des = Float32MultiArray()
 
         stiff_des.data = np.array([self.K_pos, self.K_pos, self.K_pos, self.K_ori, self.K_ori, self.K_ori, self.K_ns]).astype(np.float32)
-    #    print(stiff_des)
         self.stiff_pub.publish(stiff_des)
         goal = PoseStamped()
         for i in range(step_num):
-            now = time.time()            # get the time
+            now = time.time()         
             goal.header.seq = 1
             goal.header.stamp = rospy.Time.now()
             goal.header.frame_id = "map"
@@ -121,11 +117,11 @@ class LfD():
             goal.pose.position.x = x[i]
             goal.pose.position.y = y[i]
             goal.pose.position.z = z[i]
-
-            goal.pose.orientation.x = rot_x[i]
-            goal.pose.orientation.y = rot_y[i]
-            goal.pose.orientation.z = rot_z[i]
-            goal.pose.orientation.w = rot_w[i]
+            quat=np.slerp_vectorized(q_start, q_goal, i/step_num)
+            goal.pose.orientation.x = quat[1]
+            goal.pose.orientation.y = quat[2]
+            goal.pose.orientation.z = quat[3]
+            goal.pose.orientation.w = quat[0]
             self.goal_pub.publish(goal)
             self.r.sleep()   
 
@@ -157,8 +153,6 @@ class LfD():
             self.grip_pub.publish(grip_command) 
 
             self.r.sleep()
-
-    #def start_ros(self):
 
 #%%
     if __name__ == '__main__':

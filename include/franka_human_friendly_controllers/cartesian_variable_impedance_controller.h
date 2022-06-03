@@ -15,6 +15,7 @@
 #include "std_msgs/Float32MultiArray.h"
 #include "std_msgs/Float32.h"
 #include "std_msgs/Bool.h"
+#include "sensor_msgs/JointState.h"
 #include <hardware_interface/joint_command_interface.h>
 #include <hardware_interface/robot_hw.h>
 #include <dynamic_reconfigure/Config.h>
@@ -83,17 +84,10 @@ class CartesianVariableImpedanceController : public controller_interface::MultiI
 
   // Configuration pose subscriber
   ros::Subscriber sub_equilibrium_config_;
-  void equilibriumConfigurationCallback( const std_msgs::Float32MultiArray::ConstPtr& joint);
-
-
-  // Multi directional stiffness stiffnes
-  ros::Subscriber sub_stiffness_;
-  void equilibriumStiffnessCallback(const std_msgs::Float32MultiArray::ConstPtr& stiffness_);
+  void equilibriumConfigurationCallback( const sensor_msgs::JointState::ConstPtr& joint);
 
   ros::Subscriber sub_vibration_;
   void equilibriumVibrationCallback(const std_msgs::Float32::ConstPtr& vibration_);
-
-  ros::Publisher pub_stiff_update_;
 
   ros::Publisher pub_cartesian_pose_;
   ros::Publisher pub_force_torque_;

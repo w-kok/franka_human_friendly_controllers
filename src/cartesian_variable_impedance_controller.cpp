@@ -24,15 +24,9 @@ bool CartesianVariableImpedanceController::init(hardware_interface::RobotHW* rob
       "/equilibrium_configuration", 20, &CartesianVariableImpedanceController::equilibriumConfigurationCallback, this,
       ros::TransportHints().reliable().tcpNoDelay());
   // We want to add the subscriber to the note for reading the desired stiffness in the different directions
-  sub_stiffness_ = node_handle.subscribe(
-    "/stiffness", 20, &CartesianVariableImpedanceController::equilibriumStiffnessCallback, this,
-    ros::TransportHints().reliable().tcpNoDelay());
   sub_vibration_ = node_handle.subscribe(
       "/vibration", 20, &CartesianVariableImpedanceController::equilibriumVibrationCallback, this,
       ros::TransportHints().reliable().tcpNoDelay());
-
-  pub_stiff_update_ = node_handle.advertise<dynamic_reconfigure::Config>(
-    "/dynamic_reconfigure_compliance_param_node/parameter_updates", 5);
 
   pub_cartesian_pose_= node_handle.advertise<geometry_msgs::PoseStamped>("/cartesian_pose",1);
 
@@ -113,8 +107,6 @@ bool CartesianVariableImpedanceController::init(hardware_interface::RobotHW* rob
 
   position_d_.setZero();
   orientation_d_.coeffs() << 0.0, 0.0, 0.0, 1.0;
-  //position_d_target_.setZero();
-  //orientation_d_target_.coeffs() << 0.0, 0.0, 0.0, 1.0;
   cartesian_stiffness_.setZero();
   cartesian_damping_.setZero();
 
@@ -184,29 +176,6 @@ void CartesianVariableImpedanceController::update(const ros::Time& /*time*/,
   tau_f(5) =  FI_16/(1+exp(-FI_26*(dq(5)+FI_36))) - TAU_F_CONST_6;
   tau_f(6) =  FI_17/(1+exp(-FI_27*(dq(6)+FI_37))) - TAU_F_CONST_7;
 
-
-//Sliding window filter
- /*
-  force_torque=force_torque-jacobian_transpose_pinv*(tau_ext-tau_f);
-  // publish force, torque
-  filter_step=filter_step+1;
-  filter_step_=10; // this will make the force to be published at 1000/filter_step_ frequency
-  alpha=1;
-  if (filter_step==filter_step_){
-    geometry_msgs::WrenchStamped force_torque_msg;
-    force_torque_msg.wrench.force.x=force_torque_old[0]*(1-alpha)+force_torque[0]*alpha/(filter_step_);
-    force_torque_msg.wrench.force.y=force_torque_old[1]*(1-alpha)+ force_torque[1]*alpha/(filter_step_);
-    force_torque_msg.wrench.force.z=force_torque_old[2]*(1-alpha)+force_torque[2]*alpha/(filter_step_);
-    force_torque_msg.wrench.torque.x=force_torque_old[3]*(1-alpha)+force_torque[3]*alpha/(filter_step_);
-    force_torque_msg.wrench.torque.y=force_torque_old[4]*(1-alpha)+force_torque[4]*alpha/(filter_step_);
-    force_torque_msg.wrench.torque.z=force_torque_old[5]*(1-alpha)+force_torque[5]*alpha/(filter_step_);
-    pub_force_torque_.publish(force_torque_msg);
-    force_torque_old=force_torque/(filter_step_); //save the previous average 
-    force_torque.setZero();
-    //ddq.setZero();
-    filter_step=0;
-    }
-    */
    //Low pass filter for the external force estimation
   float iCutOffFrequency=10.0;
   force_torque+=(-jacobian_transpose_pinv*(tau_ext-tau_f)-force_torque)*(1-exp(-0.001 * 2.0 * M_PI * iCutOffFrequency));
@@ -296,12 +265,6 @@ void CartesianVariableImpedanceController::update(const ros::Time& /*time*/,
   for (size_t i = 0; i < 7; ++i) {
     joint_handles_[i].setCommand(tau_d(i));
   }
-
-  cartesian_stiffness_ =cartesian_stiffness_target_;
-  cartesian_damping_ = cartesian_damping_target_;
-  nullspace_stiffness_ = nullspace_stiffness_target_;
-  Eigen::AngleAxisd aa_orientation_d(orientation_d_);
-  orientation_d_ = Eigen::Quaterniond(aa_orientation_d);
 }
 
 Eigen::Matrix<double, 7, 1> CartesianVariableImpedanceController::saturateTorqueRate(
@@ -316,105 +279,24 @@ Eigen::Matrix<double, 7, 1> CartesianVariableImpedanceController::saturateTorque
   return tau_d_saturated;
 }
 
-void CartesianVariableImpedanceController::equilibriumStiffnessCallback(
-    const std_msgs::Float32MultiArray::ConstPtr& stiffness_){
-
-  int i = 0;
-  // print all the remaining numbers
-  for(std::vector<float>::const_iterator it = stiffness_->data.begin(); it != stiffness_->data.end(); ++it)
-  {
-    stiff_[i] = *it;
-    i++;
-  }
-
-  cartesian_stiffness_target_(0,0)=std::max(std::min(stiff_[0], float(4000.0)), float(0.0));
-  cartesian_stiffness_target_(1,1)=std::max(std::min(stiff_[1], float(4000.0)), float(0.0));
-  cartesian_stiffness_target_(2,2)=std::max(std::min(stiff_[2], float(4000.0)), float(0.0));
-
-  cartesian_damping_target_(0,0)=2.0 * sqrt(cartesian_stiffness_target_(0,0));
-  cartesian_damping_target_(1,1)=2.0 * sqrt(cartesian_stiffness_target_(1,1));
-  cartesian_damping_target_(2,2)=2.0 * sqrt(cartesian_stiffness_target_(2,2));
-
-  cartesian_stiffness_target_(3,3)=std::max(std::min(stiff_[3], float(50.0)), float(0.0));
-  cartesian_stiffness_target_(4,4)=std::max(std::min(stiff_[4], float(50.0)), float(0.0));
-  cartesian_stiffness_target_(5,5)=std::max(std::min(stiff_[5], float(50.0)), float(0.0));
-
-  cartesian_damping_target_(3,3)=2.0 * sqrt(cartesian_stiffness_target_(3,3));
-  cartesian_damping_target_(4,4)=2.0 * sqrt(cartesian_stiffness_target_(4,4));
-  cartesian_damping_target_(5,5)=2.0 * sqrt(cartesian_stiffness_target_(5,5));
-
-  nullspace_stiffness_target_= std::max(std::min(stiff_[6], float(50.0)), float(0.0));
-
-
-  dynamic_reconfigure::Config set_Kx;
-  dynamic_reconfigure::DoubleParameter param_X_double;
-  param_X_double.name = "translational_stiffness_X";
-  param_X_double.value = cartesian_stiffness_target_(0,0);
-  set_Kx.doubles = {param_X_double};
-  pub_stiff_update_.publish(set_Kx);
-
-  dynamic_reconfigure::Config set_Ky;
-  dynamic_reconfigure::DoubleParameter param_Y_double;
-  param_Y_double.name = "translational_stiffness_Y";
-  param_Y_double.value = cartesian_stiffness_target_(1,1);
-  set_Ky.doubles = {param_Y_double};
-  pub_stiff_update_.publish(set_Ky);
-
-  dynamic_reconfigure::Config set_Kz;
-  dynamic_reconfigure::DoubleParameter param_Z_double;
-  param_Z_double.name = "translational_stiffness_Z";
-  param_Z_double.value = cartesian_stiffness_target_(2,2);
-  set_Kz.doubles = {param_Z_double};
-  pub_stiff_update_.publish(set_Kz);
-
-  dynamic_reconfigure::Config set_K_alpha;
-  dynamic_reconfigure::DoubleParameter param_alpha_double;
-  param_alpha_double.name = "rotational_stiffness_X";
-  param_alpha_double.value = cartesian_stiffness_target_(3,3);
-  set_K_alpha.doubles = {param_alpha_double};
-  pub_stiff_update_.publish(set_K_alpha);
-
-  dynamic_reconfigure::Config set_K_beta;
-  dynamic_reconfigure::DoubleParameter param_beta_double;
-  param_beta_double.name = "rotational_stiffness_Y";
-  param_beta_double.value = cartesian_stiffness_target_(4,4);
-  set_K_beta.doubles = {param_beta_double};
-  pub_stiff_update_.publish(set_K_beta);
-
-  dynamic_reconfigure::Config set_K_gamma;
-  dynamic_reconfigure::DoubleParameter param_gamma_double;
-  param_gamma_double.name = "rotational_stiffness_Z";
-  param_gamma_double.value = cartesian_stiffness_target_(5,5);
-  set_K_gamma.doubles = {param_gamma_double};
-  pub_stiff_update_.publish(set_K_gamma);
-
-  dynamic_reconfigure::Config set_nullspace;
-  dynamic_reconfigure::DoubleParameter param_nullspace_double;
-  param_nullspace_double.name = "nullspace_stiffness";
-  param_nullspace_double.value = nullspace_stiffness_target_;
-  set_nullspace.doubles = {param_nullspace_double};
-  pub_stiff_update_.publish(set_nullspace);
-
-}
-
 void CartesianVariableImpedanceController::complianceParamCallback(
     franka_human_friendly_controllers::compliance_paramConfig& config,
     uint32_t /*level*/) {
-  cartesian_stiffness_target_.setIdentity();
-  cartesian_stiffness_target_(0,0)=config.translational_stiffness_X;
-  cartesian_stiffness_target_(1,1)=config.translational_stiffness_Y;
-  cartesian_stiffness_target_(2,2)=config.translational_stiffness_Z;
-  cartesian_stiffness_target_(3,3)=config.rotational_stiffness_X;
-  cartesian_stiffness_target_(4,4)=config.rotational_stiffness_Y;
-  cartesian_stiffness_target_(5,5)=config.rotational_stiffness_Z;
+  cartesian_stiffness_.setIdentity();
+  cartesian_stiffness_(0,0)=config.translational_stiffness_X;
+  cartesian_stiffness_(1,1)=config.translational_stiffness_Y;
+  cartesian_stiffness_(2,2)=config.translational_stiffness_Z;
+  cartesian_stiffness_(3,3)=config.rotational_stiffness_X;
+  cartesian_stiffness_(4,4)=config.rotational_stiffness_Y;
+  cartesian_stiffness_(5,5)=config.rotational_stiffness_Z;
 
-  cartesian_damping_target_(0,0)=2.0 * sqrt(config.translational_stiffness_X);
-  cartesian_damping_target_(1,1)=2.0 * sqrt(config.translational_stiffness_Y);
-  cartesian_damping_target_(2,2)=2.0 * sqrt(config.translational_stiffness_Z);
-  cartesian_damping_target_(3,3)=2.0 * sqrt(config.rotational_stiffness_X);
-  cartesian_damping_target_(4,4)=2.0 * sqrt(config.rotational_stiffness_Y);
-  cartesian_damping_target_(5,5)=2.0 * sqrt(config.rotational_stiffness_Z);
-  nullspace_stiffness_target_ = config.nullspace_stiffness;
+  cartesian_damping_(0,0)=2.0 * sqrt(config.translational_stiffness_X);
+  cartesian_damping_(1,1)=2.0 * sqrt(config.translational_stiffness_Y);
+  cartesian_damping_(2,2)=2.0 * sqrt(config.translational_stiffness_Z);
+  cartesian_damping_(3,3)=2.0 * sqrt(config.rotational_stiffness_X);
+  cartesian_damping_(4,4)=2.0 * sqrt(config.rotational_stiffness_Y);
+  cartesian_damping_(5,5)=2.0 * sqrt(config.rotational_stiffness_Z);
+  nullspace_stiffness_ = config.nullspace_stiffness;
 }
 
 
@@ -429,14 +311,15 @@ void CartesianVariableImpedanceController::equilibriumPoseCallback(
     orientation_d_.coeffs() << -orientation_d_.coeffs();
 }
 }
-void CartesianVariableImpedanceController::equilibriumConfigurationCallback( const std_msgs::Float32MultiArray::ConstPtr& joint) {
+
+void CartesianVariableImpedanceController::equilibriumConfigurationCallback( const sensor_msgs::JointState::ConstPtr& joint) {
   int i = 0;
-  for(std::vector<float>::const_iterator it = joint->data.begin(); it != joint->data.end(); ++it)
+  Eigen::Matrix<double, 7, 1> q_d_nullspace_;
+
+  for(int i=0; i<7; ++i)
   {
-    q_d_nullspace_[i] = *it;
-    i++;
+    q_d_nullspace_[i] = joint->position[i];
   }
-  return;
 }
 void CartesianVariableImpedanceController::equilibriumVibrationCallback( const std_msgs::Float32::ConstPtr& vibration_msg) {
   count_vibration = 0;
