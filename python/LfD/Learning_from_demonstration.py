@@ -3,6 +3,7 @@
 import rospy
 import math
 import numpy as np
+import quaternion
 import time
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PoseStamped
