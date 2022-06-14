@@ -3,7 +3,7 @@
 import rospy
 import math
 import numpy as np
-import quaternion
+import quaternion # pip install numpy-quaternion
 import time
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PoseStamped
@@ -82,19 +82,38 @@ class LfD():
         dist = np.sqrt(squared_dist)
         print("dist", dist)
         interp_dist = 0.01  # [m]
-        step_num = math.floor(dist / interp_dist)
+        step_num_lin = math.floor(dist / interp_dist)
+
+        
         print("num of steps", step_num)
         x = np.linspace(start[0], goal_pose.pose.position.x, step_num)
         y = np.linspace(start[1], goal_pose.pose.position.y, step_num)
         z = np.linspace(start[2], goal_pose.pose.position.z, step_num)
         q_start=np.quaternion(start_ori[3], start_ori[0], start_ori[1], start_ori[2])
         q_goal=np.quaternion(goal_pose.pose.orientation.w, goal_pose.pose.orientation.x, goal_pose.pose.orientation.y, goal_pose.pose.orientation.z)
+        inner_prod=q_start.x*q_goal.x+q_start.y*q_goal.y+q_start.z*q_goal.z+q_start.w*q_goal.w
+        if inner_prod < 0:
+            q_start.x=-q_start.x
+            q_start.y=-q_start.y
+            q_start.z=-q_start.z
+            q_start.w=-q_start.w
+        inner_prod=q_start.x*q_goal.x+q_start.y*q_goal.y+q_start.z*q_goal.z+q_start.w*q_goal.w
+        theta= np.arccos(np.abs(inner_prod))
+        print(theta)
+        interp_dist_polar = 0.01 
+        step_num_polar = math.floor(theta / interp_dist_polar)
+
+        
+        print("num of steps polar", step_num_polar)
+        
+        step_num=np.max([step_num_polar,step_num_lin])
         goal = PoseStamped()
         
         goal.pose.position.x = x[0]
         goal.pose.position.y = y[0]
         goal.pose.position.z = z[0]
-
+        
+        
         quat=np.slerp_vectorized(q_start, q_goal, 0)
         goal.pose.orientation.x = quat[1]
         goal.pose.orientation.y = quat[2]
