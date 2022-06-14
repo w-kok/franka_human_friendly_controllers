@@ -85,10 +85,9 @@ class LfD():
         step_num_lin = math.floor(dist / interp_dist)
 
         
-        print("num of steps", step_num)
-        x = np.linspace(start[0], goal_pose.pose.position.x, step_num)
-        y = np.linspace(start[1], goal_pose.pose.position.y, step_num)
-        z = np.linspace(start[2], goal_pose.pose.position.z, step_num)
+        print("num of steps linear", step_num_lin)
+        
+        
         q_start=np.quaternion(start_ori[3], start_ori[0], start_ori[1], start_ori[2])
         q_goal=np.quaternion(goal_pose.pose.orientation.w, goal_pose.pose.orientation.x, goal_pose.pose.orientation.y, goal_pose.pose.orientation.z)
         inner_prod=q_start.x*q_goal.x+q_start.y*q_goal.y+q_start.z*q_goal.z+q_start.w*q_goal.w
@@ -107,6 +106,11 @@ class LfD():
         print("num of steps polar", step_num_polar)
         
         step_num=np.max([step_num_polar,step_num_lin])
+        
+        x = np.linspace(start[0], goal_pose.pose.position.x, step_num)
+        y = np.linspace(start[1], goal_pose.pose.position.y, step_num)
+        z = np.linspace(start[2], goal_pose.pose.position.z, step_num)
+        
         goal = PoseStamped()
         
         goal.pose.position.x = x[0]
