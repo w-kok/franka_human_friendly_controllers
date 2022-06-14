@@ -115,10 +115,10 @@ class LfD():
         
         
         quat=np.slerp_vectorized(q_start, q_goal, 0)
-        goal.pose.orientation.x = quat[1]
-        goal.pose.orientation.y = quat[2]
-        goal.pose.orientation.z = quat[3]
-        goal.pose.orientation.w = quat[0]
+        goal.pose.orientation.x = quat.x
+        goal.pose.orientation.y = quat.y
+        goal.pose.orientation.z = quat.z
+        goal.pose.orientation.w = quat.w
 
         self.goal_pub.publish(goal)
 
@@ -138,10 +138,10 @@ class LfD():
             goal.pose.position.y = y[i]
             goal.pose.position.z = z[i]
             quat=np.slerp_vectorized(q_start, q_goal, i/step_num)
-            goal.pose.orientation.x = quat[1]
-            goal.pose.orientation.y = quat[2]
-            goal.pose.orientation.z = quat[3]
-            goal.pose.orientation.w = quat[0]
+            goal.pose.orientation.x = quat.x
+            goal.pose.orientation.y = quat.y
+            goal.pose.orientation.z = quat.x
+            goal.pose.orientation.w = quat.w
             self.goal_pub.publish(goal)
             self.r.sleep()   
 
