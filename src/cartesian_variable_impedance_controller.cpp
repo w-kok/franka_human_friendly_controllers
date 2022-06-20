@@ -107,8 +107,8 @@ bool CartesianVariableImpedanceController::init(hardware_interface::RobotHW* rob
 
   position_d_.setZero();
   orientation_d_.coeffs() << 0.0, 0.0, 0.0, 1.0;
-  cartesian_stiffness_.setZero();
-  cartesian_damping_.setZero();
+  //cartesian_stiffness_.setZero();
+  //cartesian_damping_.setZero();
 
   stiff_.setZero();
 
