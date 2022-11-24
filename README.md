@@ -85,9 +85,10 @@ Clone this repository
 
 For running the controller, you run: 
 
-``` source mujoco_panda/set_env.sh 
-
- python3 mujoco/CartesianImpedanceControl.py ```
+```
+source mujoco_panda/set_env.sh 
+python3 mujoco/CartesianImpedanceControl.py 
+ ```
 
 # Disagreement-aware Variable Impedance controller (DAVI)
 To run the demo of teaching the robot where and how to place a paper cup:
