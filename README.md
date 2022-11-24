@@ -75,6 +75,20 @@ To lunch the cartesian impedance controller in simulation:
 
 ``` roslaunch franka_gazebo panda.launch x:=-0.5 world:=$(rospack find franka_gazebo)/world/stone.sdf controller:=cartesian_variable_impedance_controller rviz:=true ```
 
+# Run Impedance control in MuJuCo [develop] 
+
+Be sure that you have installed [mujoco and mujoco-py](https://docs.google.com/document/d/1ufpsUXvJZqxOIkYD7VqL-oPguB2DRB9J5uOeKElexso/edit?usp=sharing).
+
+Clone this repository
+
+``` git clone https://github.com/justagist/mujoco_panda.git ```
+
+For running the controller, you run: 
+
+``` source mujoco_panda/set_env.sh 
+
+ python3 mujoco/CartesianImpedanceControl.py ```
+
 # Disagreement-aware Variable Impedance controller (DAVI)
 To run the demo of teaching the robot where and how to place a paper cup:
 - Open a new terminal in src/franka_human_friendly_controllers/python/DAVI
